@@ -1,0 +1,15 @@
+name: Wake Render
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Render
+        run: |
+          curl -I https://american-college-api-sdk.onrender.com
