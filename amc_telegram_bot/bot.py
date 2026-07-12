@@ -1,15 +1,37 @@
+import os
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from telebot import TeleBot
 from .config import TELEGRAM_BOT_TOKEN
 from .database.sqlite import init_db
 from .handlers import start, profile, attendance, timetable, fees, notifications, news, settings
 
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+        
+    def log_message(self, format, *args):
+        # Suppress request logging to keep Render console logs clean
+        return
+
+def start_dummy_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    print(f"Render health check server listening on port {port}...")
+    server.serve_forever()
 
 def main():
-
     if not TELEGRAM_BOT_TOKEN:
         print("Error: TELEGRAM_BOT_TOKEN environment variable not set.")
         sys.exit(1)
+
+    # Start dummy web server on a background thread for Render port binding
+    threading.Thread(target=start_dummy_web_server, daemon=True).start()
 
     print("Initializing database...")
     init_db()
