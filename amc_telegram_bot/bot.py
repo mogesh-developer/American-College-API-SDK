@@ -27,7 +27,7 @@ def start_dummy_web_server():
 
 def main():
     if not TELEGRAM_BOT_TOKEN:
-        print("Error: TELEGRAM_BOT_TOKEN environment variable not set.")
+        print("Error: TELEGRAM_BOT_TOKEN environment variable not set in Render dashboard.", flush=True)
         sys.exit(1)
 
     # Start dummy web server on a background thread for Render port binding

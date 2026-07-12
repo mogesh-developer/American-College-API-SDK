@@ -36,7 +36,9 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
+    print("Error: SUPABASE_URL and SUPABASE_KEY environment variables must be set in Render dashboard.", flush=True)
     raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables must be set.")
+
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
