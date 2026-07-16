@@ -23,6 +23,10 @@ UPCOMING_DAY_ORDER = "/api/v1/oa/dayorder/upcoming-day-order"
 
 ATTENDANCE = "/api/mob/stu/v2/attendance"
 
+FULL_ATTENDANCE = "/api/mob/stu/v2/timetable/full-attendance"
+
+SUBJECT_WISE_ATTENDANCE = "/api/mob/stu/v2/timetable/subject-wise-report"
+
 FEES = "/api/mob/stu/v2/fees/my-fees"
 
 LIST_SERVICE_GROUPS = "/api/mob/stu/v2/fee-services/list-service-groups"

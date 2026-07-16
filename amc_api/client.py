@@ -74,6 +74,14 @@ class AMCClient:
 
         return self.attendance_service.absent_days()
 
+    def full_attendance(self):
+
+        return self.attendance_service.full_attendance()
+
+    def subject_wise_attendance(self):
+
+        return self.attendance_service.subject_wise_report()
+
     # --------------------
     # Fees
     # --------------------

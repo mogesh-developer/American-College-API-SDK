@@ -161,13 +161,21 @@ def get_credentials(telegram_id: int):
     if not res.data:
         return None
     row = res.data[0]
-    dec_reg = cipher.decrypt(row.get("encrypted_reg_no").encode()).decode()
-    dec_dob = cipher.decrypt(row.get("encrypted_dob").encode()).decode()
-    return {
-        "reg_no": dec_reg,
-        "dob": dec_dob,
-        "token": row.get("api_token")
-    }
+    try:
+        dec_reg = cipher.decrypt(row.get("encrypted_reg_no").encode()).decode()
+        dec_dob = cipher.decrypt(row.get("encrypted_dob").encode()).decode()
+        return {
+            "reg_no": dec_reg,
+            "dob": dec_dob,
+            "token": row.get("api_token")
+        }
+    except Exception as e:
+        print(f"⚠️ Decryption failed for user {telegram_id} (encryption key mismatch). Clearing credentials: {e}")
+        try:
+            delete_credentials(telegram_id)
+        except Exception:
+            pass
+        return None
 
 @retry_on_disconnect
 def delete_credentials(telegram_id: int):

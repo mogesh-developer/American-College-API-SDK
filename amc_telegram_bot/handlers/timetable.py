@@ -3,7 +3,7 @@ from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from ..utils.sdk_helper import get_client_for_user, UserNotRegistered
 from amc_api.exceptions import LoginError
 from datetime import datetime
-from ..database.sqlite import get_cached_day_order, get_weekly_timetable
+from ..database.sqlite import get_cached_day_order, get_weekly_timetable, save_day_order
 
 
 def get_day_order_keyboard():
@@ -59,12 +59,17 @@ def register_handlers(bot: TeleBot):
         loading_msg = bot.send_message(message.chat.id, "🔄 *Loading timetable...*", parse_mode="Markdown")
 
         try:
-            # Get today's day order status completely locally from database calendar
-            today_str = datetime.now().strftime("%Y-%m-%d")
-            day_val_str = get_cached_day_order(today_str)
-
-            if not day_val_str:
-                day_val_str = "Holiday"
+            # Fetch day order status directly from college portal
+            day_val_str = "Holiday"
+            try:
+                day_val_obj = client.timetable_day_value()
+                if day_val_obj:
+                    if day_val_obj.is_holiday:
+                        day_val_str = "Holiday"
+                    elif day_val_obj.day_order_text:
+                        day_val_str = f"Day Order {day_val_obj.day_order_text}"
+            except Exception:
+                pass
 
             text = (
                 "📅 *TIMETABLE & SCHEDULE REPORT*\n"
@@ -73,10 +78,15 @@ def register_handlers(bot: TeleBot):
                 f"ℹ️ *Status:* `{day_val_str}`\n\n"
             )
 
-            # Map e.g. "Day Order 3" to "D3"
+            # Map e.g. "Day Order 3" or "3" to "D3"
+            day_key = None
             if day_val_str.startswith("Day Order "):
                 num = day_val_str.split(" ")[-1]
                 day_key = f"D{num}"
+            elif day_val_str.isdigit():
+                day_key = f"D{day_val_str}"
+
+            if day_key:
                 schedule = get_weekly_timetable(day_key)
                 if schedule:
                     text += f"📝 *Today's Schedule ({day_key}):*\n\n"

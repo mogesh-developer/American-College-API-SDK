@@ -18,6 +18,7 @@ class DayValue:
         status = data.get("status", "0")
         message = data.get("message", "")
         raw_data = data.get("data")
+        row_data = data.get("row")
         is_holiday = False
         holiday = None
         day_order_value = None
@@ -30,6 +31,12 @@ class DayValue:
             else:
                 day_order_value = raw_data.get("day_order_value")
                 day_order_text = raw_data.get("day_order_text")
+                
+        if isinstance(row_data, dict):
+            if day_order_value is None:
+                day_order_value = row_data.get("day_order_value")
+            if day_order_text is None:
+                day_order_text = row_data.get("day_order_text")
 
         return cls(
             status=status,
