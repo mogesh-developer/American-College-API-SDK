@@ -5,9 +5,17 @@ from amc_api import AMCClient, Config
 
 load_dotenv()
 
+reg_no = os.getenv("AMC_REGISTER_NO")
+dob = os.getenv("AMC_DOB")
+
+if not reg_no:
+    reg_no = input("Enter Register Number: ").strip()
+if not dob:
+    dob = input("Enter DOB (YYYY-MM-DD): ").strip()
+
 client = AMCClient(
-    reg_no=os.getenv("AMC_REGISTER_NO"),
-    dob=os.getenv("AMC_DOB"),
+    reg_no=reg_no,
+    dob=dob,
     config=Config(enable_logging=True)
 )
 
