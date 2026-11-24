@@ -4,7 +4,7 @@ import time
 import logging
 import pytz
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -327,9 +327,67 @@ def afternoon_attendance_notification():
     dispatch_attendance_notification("Afternoon (2:00 PM)")
 
 
+def send_weekly_recap_to_user(telegram_id):
+    try:
+        client = get_client_for_user(telegram_id)
+        full_att = client.full_attendance()
+        
+        # Calculate start of current week (Monday) to today (Friday)
+        today = datetime.now()
+        start_of_week = today - timedelta(days=today.weekday())
+        week_start_str = start_of_week.strftime("%Y-%m-%d")
+        week_end_str = today.strftime("%Y-%m-%d")
+
+        week_logs = [
+            r for r in full_att.attendance_records
+            if week_start_str <= r.attendance_date <= week_end_str
+        ]
+
+        if not week_logs:
+            return
+
+        present_hours = sum(1 for r in week_logs if (r.leave_type or "").lower() in ("p", "present"))
+        absent_hours = len(week_logs) - present_hours
+        week_pct = round((present_hours / len(week_logs)) * 100, 1) if week_logs else 0.0
+
+        message_lines = [
+            "📊 *WEEKLY ATTENDANCE RECAP (Mon - Fri)*",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━",
+            f"🗓 *Period:* `{week_start_str}` to `{week_end_str}`",
+            "",
+            f"✅ *Classes Attended:* `{present_hours}` hours",
+            f"❌ *Classes Missed:* `{absent_hours}` hours",
+            f"🎯 *Weekly Attendance:* `{week_pct}%`",
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "💡 _Use /bunk anytime to check your margin before taking leave._"
+        ]
+
+        bot.send_message(chat_id=telegram_id, text="\n".join(message_lines), parse_mode="Markdown")
+        logger.info(f"Weekly recap sent to user {telegram_id}")
+
+    except Exception as e:
+        logger.error(f"Error sending weekly recap to {telegram_id}: {e}")
+
+
+def weekly_recap_notification():
+    """Friday 5:00 PM Weekly Recap"""
+    logger.info("Starting Friday weekly attendance recap notifications...")
+    try:
+        user_ids = get_all_users()
+    except Exception as e:
+        logger.error(f"Error fetching users for weekly recap: {e}")
+        return
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for telegram_id in user_ids:
+            executor.submit(send_weekly_recap_to_user, telegram_id)
+
+
 def evening_attendance_notification():
     """7:00 PM Attendance check"""
     dispatch_attendance_notification("Evening (7:00 PM)")
+
 
 
 # Global Scheduler Instance with India Standard Time (IST)
@@ -364,7 +422,19 @@ def start_scheduler():
             replace_existing=True
         )
 
+        # Schedule Friday weekly attendance recap at 5:00 PM IST (17:00, day_of_week='fri')
+        scheduler.add_job(
+            weekly_recap_notification,
+            "cron",
+            day_of_week="fri",
+            hour=17,
+            minute=0,
+            id="friday_weekly_recap_job",
+            replace_existing=True
+        )
+
         # Schedule evening notification at 7:00 PM IST (19:00)
+
         scheduler.add_job(
             evening_attendance_notification,
             "cron",

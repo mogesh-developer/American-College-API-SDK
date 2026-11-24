@@ -1,3 +1,4 @@
+import math
 from telebot import TeleBot
 from telebot.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from ..database.sqlite import get_credentials
@@ -9,11 +10,13 @@ def exam_inline_menu():
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("📊 Internal Marks (CIA)", callback_data="exam_internals"),
+        InlineKeyboardButton("🎯 Target Exam Marks", callback_data="exam_target_marks"),
         InlineKeyboardButton("🏆 Semester Results", callback_data="exam_results"),
         InlineKeyboardButton("📜 Available Exam Months", callback_data="exam_months"),
         InlineKeyboardButton("📑 All Marks Sheet", callback_data="exam_all_marks")
     )
     return markup
+
 
 
 def register_handlers(bot: TeleBot):
@@ -100,7 +103,46 @@ def register_handlers(bot: TeleBot):
             except AMCException as e:
                 bot.edit_message_text(f"❌ Failed to fetch exam months: {e}", chat_id=chat_id, message_id=call.message.message_id, reply_markup=exam_inline_menu())
 
+        elif call.data == "exam_target_marks":
+            try:
+                marks = client.internal_marks()
+                if not marks:
+                    text = "ℹ️ No continuous internal assessment (CIA) marks found to compute target scores."
+                else:
+                    lines = [
+                        "🎯 **EXTERNAL EXAM TARGET SCORE PREDICTOR**",
+                        "*(External Exam: 75 Marks | Pass: 30/75 & 40/100 Total)*\n"
+                    ]
+                    for m in marks[:10]:
+                        try:
+                            cia = float(m.mark) if m.mark and m.mark.replace(".", "", 1).isdigit() else None
+                        except ValueError:
+                            cia = None
+
+                        if cia is not None:
+                            # Pass condition: External >= 30, Total (CIA + Ext) >= 40
+                            pass_target = max(30, math.ceil(40 - cia))
+                            # First class / A Grade condition: Total >= 60
+                            first_class = max(30, math.ceil(60 - cia))
+                            # Distinction / O Grade condition: Total >= 75
+                            distinction = max(30, math.ceil(75 - cia))
+
+                            fc_str = f"`{first_class}/75`" if first_class <= 75 else "N/A"
+                            dist_str = f"`{distinction}/75`" if distinction <= 75 else "N/A"
+
+                            lines.append(
+                                f"• **{m.subject_code}** (CIA: `{cia}/25`)\n"
+                                f"  ↳ 🎯 To Pass: `{pass_target}/75` | First Class: {fc_str} | Distinction: {dist_str}"
+                            )
+                        else:
+                            lines.append(f"• **{m.subject_code}** - Marks pending")
+                    text = "\n".join(lines)
+                bot.edit_message_text(text, chat_id=chat_id, message_id=call.message.message_id, parse_mode="Markdown", reply_markup=exam_inline_menu())
+            except AMCException as e:
+                bot.edit_message_text(f"❌ Failed to calculate target marks: {e}", chat_id=chat_id, message_id=call.message.message_id, reply_markup=exam_inline_menu())
+
         elif call.data == "exam_all_marks":
+
             try:
                 all_m = client.all_marks()
                 text = "📑 **All Marks History:**\n\nFetched successfully from portal."
