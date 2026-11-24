@@ -179,8 +179,14 @@ def get_credentials(telegram_id: int):
 
 @retry_on_disconnect
 def delete_credentials(telegram_id: int):
-    # Cascade delete in PostgreSQL takes care of dependent records in attendance and profiles
+    # Clear user from database as well as cached profile and attendance
     supabase.table("users").delete().eq("telegram_id", telegram_id).execute()
+    try:
+        supabase.table("student_profiles").delete().eq("telegram_id", telegram_id).execute()
+        supabase.table("attendance").delete().eq("telegram_id", telegram_id).execute()
+    except Exception:
+        pass
+
 
 @retry_on_disconnect
 def get_cached_attendance(telegram_id: int):
@@ -204,27 +210,17 @@ def save_attendance_logs(telegram_id: int, logs, subject_map):
     # Ensure subject_map has all subject_ids from logs to prevent foreign key violations
     full_subject_map = dict(subject_map) if subject_map else {}
     
-    # Fallback map for known subject IDs
-    SUBJECT_FALLBACK_MAP = {
-        2501: "24PCS5409-NLP-VB (Natural Language Processing)",
-        2500: "24PCS5407-ASE-CM (Advanced Software Engineering)",
-        2497: "24PCS5403-ADBMS-KBA (Advanced DBMS)",
-        2495: "24PCS5401-DMW-KS (Data Mining & Warehousing)",
-        2499: "24PCS5405-DIP-KB (Digital Image Processing)",
-        2494: "24PCS5301-ADBMS LAB-KBA (Advanced DBMS Lab)",
-        2498: "24PCS5405-DIP LAB-KB (Digital Image Processing Lab)"
-    }
-    
-    # Pre-populate any missing subject IDs from the logs
+    # Pre-populate any missing subject IDs from the logs dynamically
     for item in logs or []:
         if item.subject_id:
             try:
                 sub_id = int(item.subject_id)
                 if sub_id not in full_subject_map:
-                    name = SUBJECT_FALLBACK_MAP.get(sub_id, f"Subject {sub_id}")
+                    name = getattr(item, "subject_name", None) or f"Subject {sub_id}"
                     full_subject_map[sub_id] = name
             except ValueError:
                 pass
+
 
     # 1. Upsert subjects bulk
     if full_subject_map:

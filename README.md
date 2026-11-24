@@ -1,4 +1,4 @@
-# 🎓 American College API SDK
+`# 🎓 American College API SDK
 
 <p align="center">
   <b>A production-ready Python SDK for interacting with the American College Student Portal</b><br/>
@@ -47,7 +47,7 @@ Working with student portals usually means dealing with:
   Structured to be stable, scalable, and practical for real-world use.
 
 ---
-
+`
 ## 🗂️ Project Structure
 
 ```text

@@ -4,4 +4,5 @@ pyTelegramBotAPI>=4.20.0
 cryptography>=42.0.0
 supabase>=2.31.0
 apscheduler>=3.10.0
+pytz
 

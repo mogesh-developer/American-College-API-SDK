@@ -51,15 +51,31 @@ def register_handlers(bot: TeleBot):
 
             # Save credentials & Cache client instance
             save_credentials(message.chat.id, reg_no, dob)
-            from ..database.sqlite import update_user_token
+            from ..database.sqlite import update_user_token, save_profile
             if client.session.api_token:
                 update_user_token(message.chat.id, client.session.api_token)
+            
+            # Save profile immediately to database
+            profile = client.profile()
+            try:
+                save_profile(message.chat.id, profile)
+            except Exception as p_err:
+                pass
+
             session_manager._clients[message.chat.id] = client
+
+            # Clear stale attendance cache
+            try:
+                from ..utils.session_manager import attendance_cache
+                if message.chat.id in attendance_cache:
+                    del attendance_cache[message.chat.id]
+            except Exception:
+                pass
 
             bot.edit_message_text(
                 chat_id=message.chat.id,
                 message_id=loading_msg.message_id,
-                text=f"Login successful! Welcome, {client.profile().student_name}."
+                text=f"Login successful! Welcome, {profile.student_name}."
             )
             bot.send_message(
                 message.chat.id,

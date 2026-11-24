@@ -19,19 +19,10 @@ class AbsentRecord:
         self.subject_name = subject_name
 
 
-SUBJECT_FALLBACK_MAP = {
-    2501: "24PCS5409-NLP-VB (Natural Language Processing)",
-    2500: "24PCS5407-ASE-CM (Advanced Software Engineering)",
-    2497: "24PCS5403-ADBMS-KBA (Advanced DBMS)",
-    2495: "24PCS5401-DMW-KS (Data Mining & Warehousing)",
-    2499: "24PCS5405-DIP-KB (Digital Image Processing)",
-    2494: "24PCS5301-ADBMS LAB-KBA (Advanced DBMS Lab)",
-    2498: "24PCS5405-DIP LAB-KB (Digital Image Processing Lab)"
-}
+# Snappy in-memory cache imported from session_manager to avoid circular dependency
+from ..utils.session_manager import attendance_cache
 
 
-# Snappy in-memory cache
-attendance_cache = {}
 
 
 def make_progress_bar(percentage, length=10):
@@ -252,7 +243,7 @@ def show_date_details(bot: TeleBot, chat_id: int, message_id: int, target_date: 
 
         text = f"📅 *{formatted_date}*\n\n"
         for item in day_items:
-            sub_name = item.subject_name or SUBJECT_FALLBACK_MAP.get(int(item.subject_id) if item.subject_id else None) or f"Subject {item.subject_id}"
+            sub_name = item.subject_name or (f"Subject #{item.subject_id}" if item.subject_id else "Class")
             text += f"⏰ *Hour {item.hour}*\n📖 `{sub_name}`\n\n"
 
         idx = sorted_dates.index(target_date)

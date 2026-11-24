@@ -7,9 +7,14 @@ def main_menu():
 
     markup.add(
         KeyboardButton("🎓 Profile"), KeyboardButton("📊 Attendance"),
-        KeyboardButton("📅 Timetable"), KeyboardButton("💰 Fees"),
+        KeyboardButton("📅 Timetable"), KeyboardButton("📝 Exam & Results"),
+        KeyboardButton("🎟️ Hall Ticket"), KeyboardButton("💰 Fees"),
+        KeyboardButton("💼 Placements"), KeyboardButton("📚 Electives"),
         KeyboardButton("🔔 Notifications"), KeyboardButton("📰 News"),
-        KeyboardButton("⚙️ Settings"), KeyboardButton("🔓 Logout")
+        KeyboardButton("🔄 Clear Cache"), KeyboardButton("⚙️ Settings"),
+        KeyboardButton("🔓 Logout")
     )
 
     return markup
+
+

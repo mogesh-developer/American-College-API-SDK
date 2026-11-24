@@ -13,6 +13,10 @@ from .services.news import NewsService
 from .services.day_value import DayValueService
 from .services.fee_services import FeeServicesService
 from .services.programme import ProgrammeService
+from .services.exam import ExamService
+from .services.hallticket import HallTicketService
+from .services.elective import ElectiveService
+from .services.placement import PlacementService
 
 
 class AMCClient:
@@ -58,6 +62,10 @@ class AMCClient:
         self.day_value_service = DayValueService(self.session)
         self.fee_services_service = FeeServicesService(self.session)
         self.programme_service = ProgrammeService(self.session)
+        self.exam_service = ExamService(self.session)
+        self.hallticket_service = HallTicketService(self.session)
+        self.elective_service = ElectiveService(self.session)
+        self.placement_service = PlacementService(self.session)
 
     def profile(self):
 
@@ -180,3 +188,49 @@ class AMCClient:
     def enrolled_programmes(self):
 
         return self.programme_service.enrolled()
+
+    # --------------------
+    # Exam & Results
+    # --------------------
+
+    def internal_marks(self, semester: str = None):
+        return self.exam_service.internal_marks(semester=semester)
+
+    def exam_results(self, exam_month: str = None):
+        return self.exam_service.results(exam_month=exam_month)
+
+    def exam_months(self):
+        return self.exam_service.exam_months()
+
+    def all_marks(self):
+        return self.exam_service.all_marks()
+
+    # --------------------
+    # Hall Ticket
+    # --------------------
+
+    def hallticket(self):
+        return self.hallticket_service.get_hallticket()
+
+    def hallticket_subjects(self):
+        return self.hallticket_service.subjects()
+
+    # --------------------
+    # Electives
+    # --------------------
+
+    def electives(self):
+        return self.elective_service.list_electives()
+
+    def my_electives(self):
+        return self.elective_service.my_selection()
+
+    # --------------------
+    # Placements
+    # --------------------
+
+    def placement_vacancies(self):
+        return self.placement_service.vacancies()
+
+    def placement_applied(self):
+        return self.placement_service.applied_jobs()

@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from telebot import TeleBot
 from .config import TELEGRAM_BOT_TOKEN
 from .database.sqlite import init_db
-from .handlers import start, profile, attendance, timetable, fees, notifications, news, settings
+from .handlers import start, profile, attendance, timetable, fees, notifications, news, settings, exam, hallticket, student_services
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -51,6 +51,9 @@ def main():
     notifications.register_handlers(bot)
     news.register_handlers(bot)
     settings.register_handlers(bot)
+    exam.register_handlers(bot)
+    hallticket.register_handlers(bot)
+    student_services.register_handlers(bot)
 
     print("Bot is polling... Press Ctrl+C to stop.")
     try:
