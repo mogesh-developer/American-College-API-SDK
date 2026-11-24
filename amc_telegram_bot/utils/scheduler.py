@@ -170,7 +170,7 @@ def morning_notification():
             executor.submit(send_morning_notification_to_user, telegram_id, date_display)
 
 
-def send_afternoon_notification_to_user(telegram_id, today_str, date_display):
+def send_attendance_notification_to_user(telegram_id, today_str, date_display, period_title="Afternoon"):
     try:
         client = get_client_for_user(telegram_id)
         
@@ -183,20 +183,23 @@ def send_afternoon_notification_to_user(telegram_id, today_str, date_display):
         present_list = []
         absent_list = []
         for r in today_logs:
-            sub_name = SUBJECT_ABBREVIATIONS.get(r.subject_name, r.short_name or r.subject_name)
+            sub_name = r.subject_name or (f"Subject #{r.subject_id}" if getattr(r, "subject_id", None) else "Class")
             clock_emoji = PERIOD_CLOCK_EMOJIS.get(r.hour_value, "🕒")
             entry_str = f"{clock_emoji} H{r.hour_value} • {sub_name}"
             
-            if r.leave_type.lower() in ("p", "present"):
+            leave_t = (r.leave_type or "").lower()
+            if leave_t in ("p", "present"):
                 present_list.append(entry_str)
             else:
-                absent_list.append(entry_str)
+                leave_remark = f" ({r.leave_remarks})" if getattr(r, "leave_remarks", None) else ""
+                absent_list.append(f"{entry_str}{leave_remark}")
 
+        icon = "☀️" if period_title == "Afternoon" else "🌙"
         message_lines = [
-            "🌇 *Afternoon Attendance Update*",
+            f"{icon} *{period_title} Attendance Status Report*",
             "",
             f"🗓 *Date:* `{date_display}`",
-            "━━━━━━━━━━━━━━",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━",
             ""
         ]
 
@@ -207,36 +210,36 @@ def send_afternoon_notification_to_user(telegram_id, today_str, date_display):
             message_lines.append("")
 
         if absent_list:
-            message_lines.append("❌ *Absent Hours:*")
+            message_lines.append("❌ *Absent / Leave Hours:*")
             for entry in absent_list:
                 message_lines.append(entry)
             message_lines.append("")
 
         if not present_list and not absent_list:
-            message_lines.append("ℹ️ *No attendance logs registered for today yet.*")
+            message_lines.append("ℹ️ *No attendance marked on the portal for today yet.*")
             message_lines.append("")
 
-        message_lines.append("━━━━━━━━━━━━━━")
+        message_lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━")
         message_text = "\n".join(message_lines)
 
         bot.send_message(chat_id=telegram_id, text=message_text, parse_mode="Markdown")
-        logger.info(f"Afternoon attendance update sent to user {telegram_id}")
+        logger.info(f"{period_title} attendance update sent to user {telegram_id}")
 
     except UserNotRegistered:
-        logger.warning(f"User {telegram_id} not registered. Skipping afternoon job.")
+        logger.warning(f"User {telegram_id} not registered. Skipping {period_title} job.")
     except Exception as e:
-        logger.error(f"Failed afternoon job for user {telegram_id}: {e}")
+        logger.error(f"Failed {period_title} job for user {telegram_id}: {e}")
 
 
-def afternoon_notification():
+def dispatch_attendance_notification(period_title):
     """
-    Afternoon job: Sends today's live attendance updates to all users concurrently.
+    Sends today's live attendance updates to all users concurrently.
     """
-    logger.info("Starting afternoon attendance notifications...")
+    logger.info(f"Starting {period_title} attendance notifications...")
     try:
         user_ids = get_all_users()
     except Exception as e:
-        logger.error(f"Error fetching users for afternoon schedule: {e}")
+        logger.error(f"Error fetching users for {period_title} attendance schedule: {e}")
         return
 
     today_str = datetime.now().strftime("%Y-%m-%d")
@@ -244,7 +247,17 @@ def afternoon_notification():
 
     with ThreadPoolExecutor(max_workers=10) as executor:
         for telegram_id in user_ids:
-            executor.submit(send_afternoon_notification_to_user, telegram_id, today_str, date_display)
+            executor.submit(send_attendance_notification_to_user, telegram_id, today_str, date_display, period_title)
+
+
+def afternoon_attendance_notification():
+    """2:00 PM Attendance check"""
+    dispatch_attendance_notification("Afternoon (2:00 PM)")
+
+
+def evening_attendance_notification():
+    """7:00 PM Attendance check"""
+    dispatch_attendance_notification("Evening (7:00 PM)")
 
 
 # Global Scheduler Instance with India Standard Time (IST)
@@ -254,27 +267,41 @@ scheduler = BackgroundScheduler(timezone=pytz.timezone("Asia/Kolkata"))
 def start_scheduler():
     """
     Start the background scheduler with cron jobs.
+    1. Morning (8:45 AM IST): Day Order & Today's classes
+    2. Afternoon (2:00 PM IST): Attendance status check (Present/Absent)
+    3. Evening (7:00 PM IST): Final daily attendance status check (Present/Absent)
     """
     if not scheduler.running:
-        # Schedule morning notification (8:30 AM IST)
+        # Schedule morning notification at 8:45 AM IST
         scheduler.add_job(
             morning_notification,
             "cron",
             hour=8,
-            minute=30,
+            minute=45,
             id="morning_job",
             replace_existing=True
         )
         
-        # Schedule afternoon notification (3:15 PM IST)
+        # Schedule afternoon notification at 2:00 PM IST (14:00)
         scheduler.add_job(
-            afternoon_notification,
+            afternoon_attendance_notification,
             "cron",
-            hour=15,
-            minute=15,
-            id="afternoon_job",
+            hour=14,
+            minute=0,
+            id="afternoon_job_2pm",
+            replace_existing=True
+        )
+
+        # Schedule evening notification at 7:00 PM IST (19:00)
+        scheduler.add_job(
+            evening_attendance_notification,
+            "cron",
+            hour=19,
+            minute=0,
+            id="evening_job_7pm",
             replace_existing=True
         )
         
         scheduler.start()
-        logger.info("Background scheduler started successfully in Asia/Kolkata timezone.")
+        logger.info("Background scheduler started successfully with 8:45 AM, 2:00 PM, and 7:00 PM jobs in Asia/Kolkata timezone.")
+
