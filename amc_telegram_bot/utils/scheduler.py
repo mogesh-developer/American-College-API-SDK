@@ -1,13 +1,15 @@
 import os
+import re
 import time
 import logging
 import pytz
+import urllib.request
 from datetime import datetime
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from telebot import TeleBot
-from ..config import TELEGRAM_BOT_TOKEN
+from ..config import TELEGRAM_BOT_TOKEN, ADMIN_TELEGRAM_ID
 from ..database.supabase_db import (
     get_all_users,
     get_weekly_timetable,
@@ -231,16 +233,86 @@ def send_attendance_notification_to_user(telegram_id, today_str, date_display, p
         logger.error(f"Failed {period_title} job for user {telegram_id}: {e}")
 
 
+# In-memory store for last known bundle script and site health
+_LAST_BUNDLE_HASH = None
+_LAST_PORTAL_STATUS = 200
+
+
+def check_portal_health_and_changes():
+    """
+    Ultra-lightweight piggyback check executed ONLY during scheduled runs:
+    1. Fetches only the 1KB HTML root of the student portal.
+    2. Checks HTTP response status (alerts if site down/maintenance).
+    3. Detects if the college deployed a new JS bundle (new endpoints/features added).
+    Uses minimal bandwidth (zero polling loop) to fit comfortably within Render free tier.
+    """
+    global _LAST_BUNDLE_HASH, _LAST_PORTAL_STATUS
+    try:
+        url = "https://portal.americancollege.edu.in/mob/"
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            code = resp.getcode()
+            html = resp.read().decode("utf-8", errors="ignore")
+            
+            # Check for script bundle hash changes
+            match = re.search(r'src="(/mob/assets/[^"]+\.js)"', html)
+            current_bundle = match.group(1) if match else None
+
+            if _LAST_BUNDLE_HASH is None:
+                _LAST_BUNDLE_HASH = current_bundle
+            elif current_bundle and current_bundle != _LAST_BUNDLE_HASH:
+                _LAST_BUNDLE_HASH = current_bundle
+                if ADMIN_TELEGRAM_ID:
+                    bot.send_message(
+                        chat_id=int(ADMIN_TELEGRAM_ID),
+                        text=(
+                            "🚀 *College Portal Update Detected!*\n\n"
+                            f"The student portal has deployed a new web client bundle:\n`{current_bundle}`\n\n"
+                            "New endpoints, features, or UI changes may be available."
+                        ),
+                        parse_mode="Markdown"
+                    )
+
+            if _LAST_PORTAL_STATUS != 200 and code == 200:
+                _LAST_PORTAL_STATUS = 200
+                if ADMIN_TELEGRAM_ID:
+                    bot.send_message(
+                        chat_id=int(ADMIN_TELEGRAM_ID),
+                        text="✅ *Portal Restored:* The American College student portal is back online."
+                    )
+
+    except Exception as e:
+        if _LAST_PORTAL_STATUS == 200:
+            _LAST_PORTAL_STATUS = 500
+            if ADMIN_TELEGRAM_ID:
+                try:
+                    bot.send_message(
+                        chat_id=int(ADMIN_TELEGRAM_ID),
+                        text=f"⚠️ *Portal Outage Alert:*\nUnable to reach student portal during scheduled run:\n`{str(e)}`"
+                    )
+                except Exception:
+                    pass
+
+
 def dispatch_attendance_notification(period_title):
     """
     Sends today's live attendance updates to all users concurrently.
+    Also piggybacks a lightweight site health and bundle check.
     """
     logger.info(f"Starting {period_title} attendance notifications...")
+
+    # Passive check during the attendance run (no extra continuous loop)
+    check_portal_health_and_changes()
+
     try:
         user_ids = get_all_users()
     except Exception as e:
         logger.error(f"Error fetching users for {period_title} attendance schedule: {e}")
         return
+
 
     today_str = datetime.now().strftime("%Y-%m-%d")
     date_display = datetime.now().strftime("%d %b %Y")
