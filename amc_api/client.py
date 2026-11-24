@@ -102,9 +102,10 @@ class AMCClient:
     # Timetable
     # --------------------
 
-    def timetable(self, type_str: str = "today"):
+    def timetable(self, type_str: str = "today", date_str: str = None):
 
-        return self.timetable_service.get(type_str=type_str)
+        return self.timetable_service.get(type_str=type_str, date_str=date_str)
+
 
     # --------------------
     # Timetable Day Value

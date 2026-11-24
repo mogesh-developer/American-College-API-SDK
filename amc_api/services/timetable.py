@@ -5,12 +5,14 @@ from .. import endpoints
 
 class TimetableService(BaseService):
 
-    def get(self, type_str: str = "today"):
+    def get(self, type_str: str = "today", date_str: str = None):
 
         payload = {
             "type": type_str,
             "format_2": "1"
         }
+        if date_str:
+            payload["date"] = date_str
 
         data = self._post(
             endpoints.TIMETABLE,
@@ -18,3 +20,4 @@ class TimetableService(BaseService):
         )
 
         return Timetable.from_dict(data)
+
